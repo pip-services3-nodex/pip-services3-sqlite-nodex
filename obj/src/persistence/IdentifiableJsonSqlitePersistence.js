@@ -27,7 +27,8 @@ const IdentifiableSqlitePersistence_1 = require("./IdentifiableSqlitePersistence
 
  * ### Configuration parameters ###
  *
- * - collection:                  (optional) SQLite table name
+ * - table:                  (optional) SQLite table name
+ * - schema:                  (optional) SQLite schema name
  * - connection(s):
  *   - discovery_key:             (optional) a key to retrieve the connection from [[https://pip-services3-nodex.github.io/pip-services3-components-nodex/interfaces/connect.idiscovery.html IDiscovery]]
  *   - database:                  database file path
@@ -96,7 +97,7 @@ class IdentifiableJsonSqlitePersistence extends IdentifiableSqlitePersistence_1.
      * @param dataType type of the data column (default: JSON)
      */
     ensureTable(idType = 'VARCHAR(32)', dataType = 'JSON') {
-        let query = "CREATE TABLE IF NOT EXISTS " + this.quoteIdentifier(this._tableName)
+        let query = "CREATE TABLE IF NOT EXISTS " + this.quotedTableName()
             + " (id " + idType + " PRIMARY KEY, data " + dataType + ")";
         this.ensureSchema(query);
     }
@@ -141,7 +142,7 @@ class IdentifiableJsonSqlitePersistence extends IdentifiableSqlitePersistence_1.
             }
             // let row = this.convertFromPublicPartial(data.getAsObject());
             let values = [JSON.stringify(data.getAsObject()), id];
-            let query = "UPDATE " + this.quoteIdentifier(this._tableName)
+            let query = "UPDATE " + this.quotedTableName()
                 + " SET data=JSON_PATCH(data,?) WHERE id=?";
             return yield new Promise((resolve, reject) => {
                 this._client.serialize(() => {
@@ -151,7 +152,7 @@ class IdentifiableJsonSqlitePersistence extends IdentifiableSqlitePersistence_1.
                             return;
                         }
                         this._logger.trace(correlationId, "Updated partially in %s with id = %s", this._tableName, id);
-                        let query = "SELECT * FROM " + this.quoteIdentifier(this._tableName) + " WHERE id=?";
+                        let query = "SELECT * FROM " + this.quotedTableName() + " WHERE id=?";
                         this._client.get(query, [id], (err, result) => {
                             if (err != null) {
                                 reject(err);

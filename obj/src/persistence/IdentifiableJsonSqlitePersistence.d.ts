@@ -18,7 +18,8 @@ import { IdentifiableSqlitePersistence } from './IdentifiableSqlitePersistence';
 
  * ### Configuration parameters ###
  *
- * - collection:                  (optional) SQLite table name
+ * - table:                  (optional) SQLite table name
+ * - schema:                  (optional) SQLite schema name
  * - connection(s):
  *   - discovery_key:             (optional) a key to retrieve the connection from [[https://pip-services3-nodex.github.io/pip-services3-components-nodex/interfaces/connect.idiscovery.html IDiscovery]]
  *   - database:                  database file path

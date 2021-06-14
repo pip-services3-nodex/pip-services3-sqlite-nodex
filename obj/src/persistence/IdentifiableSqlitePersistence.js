@@ -26,7 +26,8 @@ const SqlitePersistence_1 = require("./SqlitePersistence");
 
  * ### Configuration parameters ###
  *
- * - collection:                  (optional) SQLite table name
+ * - table:                  (optional) SQLite table name
+ * - schema:                  (optional) SQLite schema name
  * - connection(s):
  *   - discovery_key:             (optional) a key to retrieve the connection from [[https://pip-services3-nodex.github.io/pip-services3-components-nodex/interfaces/connect.idiscovery.html IDiscovery]]
  *   - database:                  database file path
@@ -110,7 +111,7 @@ class IdentifiableSqlitePersistence extends SqlitePersistence_1.SqlitePersistenc
     getListByIds(correlationId, ids) {
         return __awaiter(this, void 0, void 0, function* () {
             let params = this.generateParameters(ids);
-            let query = "SELECT * FROM " + this.quoteIdentifier(this._tableName)
+            let query = "SELECT * FROM " + this.quotedTableName()
                 + " WHERE id IN(" + params + ")";
             let items = yield new Promise((resolve, reject) => {
                 this._client.all(query, ids, (err, result) => {
@@ -135,7 +136,7 @@ class IdentifiableSqlitePersistence extends SqlitePersistence_1.SqlitePersistenc
      */
     getOneById(correlationId, id) {
         return __awaiter(this, void 0, void 0, function* () {
-            let query = "SELECT * FROM " + this.quoteIdentifier(this._tableName) + " WHERE id=?";
+            let query = "SELECT * FROM " + this.quotedTableName() + " WHERE id=?";
             let params = [id];
             let item = yield new Promise((resolve, reject) => {
                 this._client.get(query, params, (err, result) => {
@@ -204,7 +205,7 @@ class IdentifiableSqlitePersistence extends SqlitePersistence_1.SqlitePersistenc
             let setParams = this.generateSetParameters(row);
             let values = this.generateValues(row);
             values.push(...values);
-            let query = "INSERT INTO " + this.quoteIdentifier(this._tableName)
+            let query = "INSERT INTO " + this.quotedTableName()
                 + " (" + columns + ") VALUES (" + params + ")";
             query += " ON CONFLICT(id) DO UPDATE SET " + setParams;
             return yield new Promise((resolve, reject) => {
@@ -214,8 +215,8 @@ class IdentifiableSqlitePersistence extends SqlitePersistence_1.SqlitePersistenc
                             reject(err);
                             return;
                         }
-                        this._logger.trace(correlationId, "Set in %s with id = %s", this.quoteIdentifier(this._tableName), item.id);
-                        let query = "SELECT * FROM " + this.quoteIdentifier(this._tableName) + " WHERE id=?";
+                        this._logger.trace(correlationId, "Set in %s with id = %s", this.quotedTableName(), item.id);
+                        let query = "SELECT * FROM " + this.quotedTableName() + " WHERE id=?";
                         this._client.get(query, [item.id], (err, result) => {
                             if (err != null) {
                                 reject(err);
@@ -245,7 +246,7 @@ class IdentifiableSqlitePersistence extends SqlitePersistence_1.SqlitePersistenc
             let params = this.generateSetParameters(row);
             let values = this.generateValues(row);
             values.push(item.id);
-            let query = "UPDATE " + this.quoteIdentifier(this._tableName)
+            let query = "UPDATE " + this.quotedTableName()
                 + " SET " + params + " WHERE id=?";
             return yield new Promise((resolve, reject) => {
                 this._client.serialize(() => {
@@ -255,7 +256,7 @@ class IdentifiableSqlitePersistence extends SqlitePersistence_1.SqlitePersistenc
                             return;
                         }
                         this._logger.trace(correlationId, "Updated in %s with id = %s", this._tableName, item.id);
-                        let query = "SELECT * FROM " + this.quoteIdentifier(this._tableName) + " WHERE id=?";
+                        let query = "SELECT * FROM " + this.quotedTableName() + " WHERE id=?";
                         this._client.get(query, [item.id], (err, result) => {
                             if (err != null) {
                                 reject(err);
@@ -286,7 +287,7 @@ class IdentifiableSqlitePersistence extends SqlitePersistence_1.SqlitePersistenc
             let params = this.generateSetParameters(row);
             let values = this.generateValues(row);
             values.push(id);
-            let query = "UPDATE " + this.quoteIdentifier(this._tableName)
+            let query = "UPDATE " + this.quotedTableName()
                 + " SET " + params + " WHERE id=?";
             return yield new Promise((resolve, reject) => {
                 this._client.serialize(() => {
@@ -296,7 +297,7 @@ class IdentifiableSqlitePersistence extends SqlitePersistence_1.SqlitePersistenc
                             return;
                         }
                         this._logger.trace(correlationId, "Updated partially in %s with id = %s", this._tableName, id);
-                        let query = "SELECT * FROM " + this.quoteIdentifier(this._tableName) + " WHERE id=?";
+                        let query = "SELECT * FROM " + this.quotedTableName() + " WHERE id=?";
                         this._client.get(query, [id], (err, result) => {
                             if (err != null) {
                                 reject(err);
@@ -318,7 +319,7 @@ class IdentifiableSqlitePersistence extends SqlitePersistence_1.SqlitePersistenc
      * @returns                 the deleted item.
      */
     deleteById(correlationId, id) {
-        let query = "SELECT * FROM " + this.quoteIdentifier(this._tableName) + " WHERE id=?";
+        let query = "SELECT * FROM " + this.quotedTableName() + " WHERE id=?";
         return new Promise((resolve, reject) => {
             this._client.serialize(() => {
                 this._client.get(query, [id], (err, result) => {
@@ -332,7 +333,7 @@ class IdentifiableSqlitePersistence extends SqlitePersistence_1.SqlitePersistenc
                         resolve(null);
                         return;
                     }
-                    let query = "DELETE FROM " + this.quoteIdentifier(this._tableName) + " WHERE id=?";
+                    let query = "DELETE FROM " + this.quotedTableName() + " WHERE id=?";
                     this._client.run(query, [id], (err, result) => {
                         if (err != null) {
                             reject(err);
@@ -354,7 +355,7 @@ class IdentifiableSqlitePersistence extends SqlitePersistence_1.SqlitePersistenc
     deleteByIds(correlationId, ids) {
         return __awaiter(this, void 0, void 0, function* () {
             let params = this.generateParameters(ids);
-            let query = "DELETE FROM " + this.quoteIdentifier(this._tableName)
+            let query = "DELETE FROM " + this.quotedTableName()
                 + " WHERE id IN(" + params + ")";
             let count = yield new Promise((resolve, reject) => {
                 this._client.run(query, ids, (err, result) => {

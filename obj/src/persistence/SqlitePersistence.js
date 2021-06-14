@@ -29,7 +29,8 @@ const SqliteConnection_1 = require("../connect/SqliteConnection");
  *
  * ### Configuration parameters ###
  *
- * - collection:                  (optional) SQLite collection name
+ * - table:                  (optional) SQLite table name
+ * - schema:                  (optional) SQLite schema name
  * - connection(s):
  *   - discovery_key:             (optional) a key to retrieve the connection from [[https://pip-services3-nodex.github.io/pip-services3-components-nodex/interfaces/connect.idiscovery.html IDiscovery]]
  *   - host:                      host name or IP address
@@ -104,8 +105,9 @@ class SqlitePersistence {
      * Creates a new instance of the persistence component.
      *
      * @param tableName    (optional) a table name.
+     * @param schemaName    (optional) a schema name.
      */
-    constructor(tableName) {
+    constructor(tableName, schemaName) {
         this._schemaStatements = [];
         /**
          * The dependency resolver.
@@ -115,8 +117,12 @@ class SqlitePersistence {
          * The logger.
          */
         this._logger = new pip_services3_components_nodex_1.CompositeLogger();
+        /**
+         * The maximum number of objects in data pages
+         */
         this._maxPageSize = 100;
         this._tableName = tableName;
+        this._schemaName = schemaName;
     }
     /**
      * Configures component by passing configuration parameters.
@@ -129,6 +135,7 @@ class SqlitePersistence {
         this._dependencyResolver.configure(config);
         this._tableName = config.getAsStringWithDefault("collection", this._tableName);
         this._tableName = config.getAsStringWithDefault("table", this._tableName);
+        this._schemaName = config.getAsStringWithDefault("schema", this._schemaName);
         this._maxPageSize = config.getAsIntegerWithDefault("options.max_page_size", this._maxPageSize);
     }
     /**
@@ -176,8 +183,11 @@ class SqlitePersistence {
         if (options.unique) {
             builder += " UNIQUE";
         }
-        builder += " INDEX IF NOT EXISTS " + this.quoteIdentifier(name)
-            + " ON " + this.quoteIdentifier(this._tableName);
+        let indexName = this.quoteIdentifier(name);
+        if (this._schemaName != null) {
+            indexName = this.quoteIdentifier(this._schemaName) + "." + indexName;
+        }
+        builder += " INDEX IF NOT EXISTS " + indexName + " ON " + this.quotedTableName();
         if (options.type) {
             builder += " " + options.type;
         }
@@ -237,6 +247,16 @@ class SqlitePersistence {
             return value;
         return '"' + value + '"';
     }
+    quotedTableName() {
+        if (this._tableName == null) {
+            return null;
+        }
+        let builder = this.quoteIdentifier(this._tableName);
+        if (this._schemaName != null) {
+            builder = this.quoteIdentifier(this._schemaName) + "." + builder;
+        }
+        return builder;
+    }
     /**
      * Checks if the component is opened.
      *
@@ -276,7 +296,7 @@ class SqlitePersistence {
                 // Recreate objects
                 yield this.createSchema(correlationId);
                 this._opened = true;
-                this._logger.debug(correlationId, "Connected to sqlite database %s, collection %s", this._databaseName, this.quoteIdentifier(this._tableName));
+                this._logger.debug(correlationId, "Connected to sqlite database %s, collection %s", this._databaseName, this._tableName);
             }
             catch (ex) {
                 this._client == null;
@@ -315,7 +335,7 @@ class SqlitePersistence {
             if (this._tableName == null) {
                 throw new Error('Table name is not defined');
             }
-            let query = "DELETE FROM " + this.quoteIdentifier(this._tableName);
+            let query = "DELETE FROM " + this.quotedTableName();
             yield new Promise((resolve, reject) => {
                 this._client.exec(query, (err, result) => {
                     if (err) {
@@ -333,7 +353,7 @@ class SqlitePersistence {
                 return;
             }
             // Check if table exist to determine weither to auto create objects
-            let query = "SELECT * FROM " + this.quoteIdentifier(this._tableName) + " LIMIT 1";
+            let query = "SELECT * FROM " + this.quotedTableName() + " LIMIT 1";
             let exists = yield new Promise((resolve, reject) => {
                 this._client.get(query, (err) => {
                     if (err != null) {
@@ -439,7 +459,7 @@ class SqlitePersistence {
     getPageByFilter(correlationId, filter, paging, sort, select) {
         return __awaiter(this, void 0, void 0, function* () {
             select = select != null ? select : "*";
-            let query = "SELECT " + select + " FROM " + this.quoteIdentifier(this._tableName);
+            let query = "SELECT " + select + " FROM " + this.quotedTableName();
             // Adjust max item count based on configuration
             paging = paging || new pip_services3_commons_nodex_2.PagingParams();
             let skip = paging.getSkip(-1);
@@ -467,7 +487,7 @@ class SqlitePersistence {
             this._logger.trace(correlationId, "Retrieved %d from %s", items.length, this._tableName);
             items = items.map(this.convertToPublic);
             if (pagingEnabled) {
-                let query = 'SELECT COUNT(*) AS count FROM ' + this.quoteIdentifier(this._tableName);
+                let query = 'SELECT COUNT(*) AS count FROM ' + this.quotedTableName();
                 if (filter != null) {
                     query += " WHERE " + filter;
                 }
@@ -500,7 +520,7 @@ class SqlitePersistence {
      */
     getCountByFilter(correlationId, filter) {
         return __awaiter(this, void 0, void 0, function* () {
-            let query = 'SELECT COUNT(*) AS count FROM ' + this.quoteIdentifier(this._tableName);
+            let query = 'SELECT COUNT(*) AS count FROM ' + this.quotedTableName();
             if (filter != null) {
                 query += " WHERE " + filter;
             }
@@ -534,7 +554,7 @@ class SqlitePersistence {
     getListByFilter(correlationId, filter, sort, select) {
         return __awaiter(this, void 0, void 0, function* () {
             select = select != null ? select : "*";
-            let query = "SELECT " + select + " FROM " + this.quoteIdentifier(this._tableName);
+            let query = "SELECT " + select + " FROM " + this.quotedTableName();
             if (filter != null) {
                 query += " WHERE " + filter;
             }
@@ -567,7 +587,7 @@ class SqlitePersistence {
      */
     getOneRandom(correlationId, filter) {
         return __awaiter(this, void 0, void 0, function* () {
-            let query = 'SELECT COUNT(*) AS count FROM ' + this.quoteIdentifier(this._tableName);
+            let query = 'SELECT COUNT(*) AS count FROM ' + this.quotedTableName();
             if (filter != null) {
                 query += " WHERE " + filter;
             }
@@ -581,7 +601,7 @@ class SqlitePersistence {
                     resolve(count);
                 });
             });
-            query = "SELECT * FROM " + this.quoteIdentifier(this._tableName);
+            query = "SELECT * FROM " + this.quotedTableName();
             if (filter != null) {
                 query += " WHERE " + filter;
             }
@@ -622,9 +642,9 @@ class SqlitePersistence {
             let columns = this.generateColumns(row);
             let params = this.generateParameters(row);
             let values = this.generateValues(row);
-            let query = "INSERT INTO " + this.quoteIdentifier(this._tableName)
+            let query = "INSERT INTO " + this.quotedTableName()
                 + " (" + columns + ") VALUES (" + params + ")";
-            //query += "; SELECT * FROM " + this.quoteIdentifier(this._tableName);
+            //query += "; SELECT * FROM " + this.quotedTableName();
             let newItem = yield new Promise((resolve, reject) => {
                 this._client.run(query, values, (err, result) => {
                     if (err != null) {
@@ -636,7 +656,7 @@ class SqlitePersistence {
                     resolve(null);
                 });
             });
-            this._logger.trace(correlationId, "Created in %s with id = %s", this.quoteIdentifier(this._tableName), row.id);
+            this._logger.trace(correlationId, "Created in %s with id = %s", this.quotedTableName(), row.id);
             newItem = item;
             return newItem;
         });
@@ -652,7 +672,7 @@ class SqlitePersistence {
      */
     deleteByFilter(correlationId, filter) {
         return __awaiter(this, void 0, void 0, function* () {
-            let query = "DELETE FROM " + this.quoteIdentifier(this._tableName);
+            let query = "DELETE FROM " + this.quotedTableName();
             if (filter != null) {
                 query += " WHERE " + filter;
             }

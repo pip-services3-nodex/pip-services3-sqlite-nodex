@@ -26,7 +26,8 @@ import { SqliteConnection } from '../connect/SqliteConnection';
  * 
  * ### Configuration parameters ###
  * 
- * - collection:                  (optional) SQLite collection name
+ * - table:                  (optional) SQLite table name
+ * - schema:                  (optional) SQLite schema name
  * - connection(s):    
  *   - discovery_key:             (optional) a key to retrieve the connection from [[https://pip-services3-nodex.github.io/pip-services3-components-nodex/interfaces/connect.idiscovery.html IDiscovery]]
  *   - host:                      host name or IP address
@@ -145,16 +146,24 @@ export class SqlitePersistence<T> implements IReferenceable, IUnreferenceable, I
      * The SQLite table object.
      */
     protected _tableName: string;
-
+    /**
+     * The SQLite schema object.
+     */
+    protected _schemaName: string;
+    /**
+     * The maximum number of objects in data pages
+     */
     protected _maxPageSize: number = 100;
 
     /**
      * Creates a new instance of the persistence component.
      * 
      * @param tableName    (optional) a table name.
+     * @param schemaName    (optional) a schema name.
      */
-    public constructor(tableName?: string) {
+    public constructor(tableName?: string, schemaName?: string) {
         this._tableName = tableName;
+        this._schemaName = schemaName;
     }
 
     /**
@@ -170,6 +179,7 @@ export class SqlitePersistence<T> implements IReferenceable, IUnreferenceable, I
 
         this._tableName = config.getAsStringWithDefault("collection", this._tableName);
         this._tableName = config.getAsStringWithDefault("table", this._tableName);
+        this._schemaName = config.getAsStringWithDefault("schema", this._schemaName);
         this._maxPageSize = config.getAsIntegerWithDefault("options.max_page_size", this._maxPageSize);
     }
 
@@ -226,8 +236,12 @@ export class SqlitePersistence<T> implements IReferenceable, IUnreferenceable, I
             builder += " UNIQUE";
         }
         
-        builder += " INDEX IF NOT EXISTS " + this.quoteIdentifier(name)
-            + " ON " + this.quoteIdentifier(this._tableName);
+        let indexName = this.quoteIdentifier(name);
+        if (this._schemaName != null) {
+            indexName = this.quoteIdentifier(this._schemaName) + "." + indexName;
+        }
+        
+        builder += " INDEX IF NOT EXISTS " + indexName + " ON " + this.quotedTableName();
 
         if (options.type) {
             builder += " " + options.type;
@@ -296,6 +310,18 @@ export class SqlitePersistence<T> implements IReferenceable, IUnreferenceable, I
         return '"' + value + '"';
     }
 
+    protected quotedTableName(): string {
+        if (this._tableName == null) {
+            return null;
+        }
+
+        let builder = this.quoteIdentifier(this._tableName);
+        if (this._schemaName != null) {
+            builder = this.quoteIdentifier(this._schemaName) + "." + builder;
+        }
+        return builder;
+    }
+    
     /**
 	 * Checks if the component is opened.
 	 * 
@@ -352,7 +378,7 @@ export class SqlitePersistence<T> implements IReferenceable, IUnreferenceable, I
 
             this._opened = true;
             this._logger.debug(correlationId, "Connected to sqlite database %s, collection %s",
-                this._databaseName, this.quoteIdentifier(this._tableName));                        
+                this._databaseName, this._tableName);                        
         } catch (ex) {
             this._client == null;
 
@@ -401,7 +427,7 @@ export class SqlitePersistence<T> implements IReferenceable, IUnreferenceable, I
             throw new Error('Table name is not defined');
         }
 
-        let query = "DELETE FROM " + this.quoteIdentifier(this._tableName);
+        let query = "DELETE FROM " + this.quotedTableName();
 
         await new Promise<void>((resolve, reject) => {
             this._client.exec(query, (err, result) => {
@@ -421,7 +447,7 @@ export class SqlitePersistence<T> implements IReferenceable, IUnreferenceable, I
         }
     
         // Check if table exist to determine weither to auto create objects
-        let query = "SELECT * FROM " + this.quoteIdentifier(this._tableName) + " LIMIT 1";
+        let query = "SELECT * FROM " + this.quotedTableName() + " LIMIT 1";
         let exists = await new Promise<boolean>((resolve, reject) => {
             this._client.get(query, (err) => {
                 if (err != null) {
@@ -536,7 +562,7 @@ export class SqlitePersistence<T> implements IReferenceable, IUnreferenceable, I
         sort: any, select: any): Promise<DataPage<T>> {
         
         select = select != null ? select : "*"
-        let query = "SELECT " + select + " FROM " + this.quoteIdentifier(this._tableName);
+        let query = "SELECT " + select + " FROM " + this.quotedTableName();
 
         // Adjust max item count based on configuration
         paging = paging || new PagingParams();
@@ -573,7 +599,7 @@ export class SqlitePersistence<T> implements IReferenceable, IUnreferenceable, I
         items = items.map(this.convertToPublic);
 
         if (pagingEnabled) {
-            let query = 'SELECT COUNT(*) AS count FROM ' + this.quoteIdentifier(this._tableName);
+            let query = 'SELECT COUNT(*) AS count FROM ' + this.quotedTableName();
             if (filter != null) {
                 query += " WHERE " + filter;
             }
@@ -607,7 +633,7 @@ export class SqlitePersistence<T> implements IReferenceable, IUnreferenceable, I
      * @returns                 a number of dat items that satisfy the filter.
      */
     protected async getCountByFilter(correlationId: string, filter: any): Promise<number> {
-        let query = 'SELECT COUNT(*) AS count FROM ' + this.quoteIdentifier(this._tableName);
+        let query = 'SELECT COUNT(*) AS count FROM ' + this.quotedTableName();
         if (filter != null) {
             query += " WHERE " + filter;
         }
@@ -646,7 +672,7 @@ export class SqlitePersistence<T> implements IReferenceable, IUnreferenceable, I
         select: any): Promise<T[]> {
     
         select = select != null ? select : "*"
-        let query = "SELECT " + select + " FROM " + this.quoteIdentifier(this._tableName);
+        let query = "SELECT " + select + " FROM " + this.quotedTableName();
 
         if (filter != null) {
             query += " WHERE " + filter;
@@ -684,7 +710,7 @@ export class SqlitePersistence<T> implements IReferenceable, IUnreferenceable, I
      * @returns                 a random item that satisfies the filter.
      */
     protected async getOneRandom(correlationId: string, filter: any): Promise<T> {
-        let query = 'SELECT COUNT(*) AS count FROM ' + this.quoteIdentifier(this._tableName);
+        let query = 'SELECT COUNT(*) AS count FROM ' + this.quotedTableName();
         if (filter != null) {
             query += " WHERE " + filter;
         }
@@ -700,7 +726,7 @@ export class SqlitePersistence<T> implements IReferenceable, IUnreferenceable, I
             });
         });
            
-        query = "SELECT * FROM " + this.quoteIdentifier(this._tableName);
+        query = "SELECT * FROM " + this.quotedTableName();
         if (filter != null) {
             query += " WHERE " + filter;
         }
@@ -745,9 +771,9 @@ export class SqlitePersistence<T> implements IReferenceable, IUnreferenceable, I
         let params = this.generateParameters(row);
         let values = this.generateValues(row);
 
-        let query = "INSERT INTO " + this.quoteIdentifier(this._tableName)
+        let query = "INSERT INTO " + this.quotedTableName()
             + " (" + columns + ") VALUES (" + params + ")";
-        //query += "; SELECT * FROM " + this.quoteIdentifier(this._tableName);
+        //query += "; SELECT * FROM " + this.quotedTableName();
 
         let newItem = await new Promise<any>((resolve, reject) => {
             this._client.run(query, values, (err, result) => {
@@ -761,7 +787,7 @@ export class SqlitePersistence<T> implements IReferenceable, IUnreferenceable, I
             });
         });
 
-        this._logger.trace(correlationId, "Created in %s with id = %s", this.quoteIdentifier(this._tableName), row.id);
+        this._logger.trace(correlationId, "Created in %s with id = %s", this.quotedTableName(), row.id);
 
         newItem = item;
         return newItem;
@@ -777,7 +803,7 @@ export class SqlitePersistence<T> implements IReferenceable, IUnreferenceable, I
      * @param filter            (optional) a filter JSON object.
      */
     public async deleteByFilter(correlationId: string, filter: string): Promise<void> {
-        let query = "DELETE FROM " + this.quoteIdentifier(this._tableName);
+        let query = "DELETE FROM " + this.quotedTableName();
         if (filter != null) {
             query += " WHERE " + filter;
         }

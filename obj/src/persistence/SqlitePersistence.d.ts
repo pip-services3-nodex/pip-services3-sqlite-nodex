@@ -21,7 +21,8 @@ import { SqliteConnection } from '../connect/SqliteConnection';
  *
  * ### Configuration parameters ###
  *
- * - collection:                  (optional) SQLite collection name
+ * - table:                  (optional) SQLite table name
+ * - schema:                  (optional) SQLite schema name
  * - connection(s):
  *   - discovery_key:             (optional) a key to retrieve the connection from [[https://pip-services3-nodex.github.io/pip-services3-components-nodex/interfaces/connect.idiscovery.html IDiscovery]]
  *   - host:                      host name or IP address
@@ -122,13 +123,21 @@ export declare class SqlitePersistence<T> implements IReferenceable, IUnreferenc
      * The SQLite table object.
      */
     protected _tableName: string;
+    /**
+     * The SQLite schema object.
+     */
+    protected _schemaName: string;
+    /**
+     * The maximum number of objects in data pages
+     */
     protected _maxPageSize: number;
     /**
      * Creates a new instance of the persistence component.
      *
      * @param tableName    (optional) a table name.
+     * @param schemaName    (optional) a schema name.
      */
-    constructor(tableName?: string);
+    constructor(tableName?: string, schemaName?: string);
     /**
      * Configures component by passing configuration parameters.
      *
@@ -180,6 +189,7 @@ export declare class SqlitePersistence<T> implements IReferenceable, IUnreferenc
      */
     protected convertFromPublic(value: any): any;
     protected quoteIdentifier(value: string): string;
+    protected quotedTableName(): string;
     /**
      * Checks if the component is opened.
      *

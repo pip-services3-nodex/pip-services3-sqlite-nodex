@@ -23,7 +23,8 @@ import { SqlitePersistence } from './SqlitePersistence';
 
  * ### Configuration parameters ###
  * 
- * - collection:                  (optional) SQLite table name
+ * - table:                  (optional) SQLite table name
+ * - schema:                  (optional) SQLite schema name
  * - connection(s):    
  *   - discovery_key:             (optional) a key to retrieve the connection from [[https://pip-services3-nodex.github.io/pip-services3-components-nodex/interfaces/connect.idiscovery.html IDiscovery]]
  *   - database:                  database file path
@@ -111,7 +112,7 @@ export class IdentifiableSqlitePersistence<T extends IIdentifiable<K>, K> extend
      */
     public async getListByIds(correlationId: string, ids: K[]): Promise<T[]> {
         let params = this.generateParameters(ids);
-        let query = "SELECT * FROM " + this.quoteIdentifier(this._tableName)
+        let query = "SELECT * FROM " + this.quotedTableName()
             + " WHERE id IN(" + params + ")";
 
         let items = await new Promise<any[]>((resolve, reject) => {
@@ -138,7 +139,7 @@ export class IdentifiableSqlitePersistence<T extends IIdentifiable<K>, K> extend
      * @returns                 the requested data item or <code>null</code>.
      */
     public async getOneById(correlationId: string, id: K): Promise<T> {
-        let query = "SELECT * FROM " + this.quoteIdentifier(this._tableName) + " WHERE id=?";
+        let query = "SELECT * FROM " + this.quotedTableName() + " WHERE id=?";
         let params = [ id ];
 
         let item = await new Promise<any>((resolve, reject) => {
@@ -210,7 +211,7 @@ export class IdentifiableSqlitePersistence<T extends IIdentifiable<K>, K> extend
         let values = this.generateValues(row);
         values.push(...values);
 
-        let query = "INSERT INTO " + this.quoteIdentifier(this._tableName)
+        let query = "INSERT INTO " + this.quotedTableName()
             + " (" + columns + ") VALUES (" + params + ")";
         query += " ON CONFLICT(id) DO UPDATE SET " + setParams;
 
@@ -222,9 +223,9 @@ export class IdentifiableSqlitePersistence<T extends IIdentifiable<K>, K> extend
                         return;
                     }
 
-                    this._logger.trace(correlationId, "Set in %s with id = %s", this.quoteIdentifier(this._tableName), item.id);
+                    this._logger.trace(correlationId, "Set in %s with id = %s", this.quotedTableName(), item.id);
                     
-                    let query = "SELECT * FROM " + this.quoteIdentifier(this._tableName) + " WHERE id=?";
+                    let query = "SELECT * FROM " + this.quotedTableName() + " WHERE id=?";
                     this._client.get(query, [item.id], (err, result) => {
                         if (err != null) {
                             reject(err);
@@ -256,7 +257,7 @@ export class IdentifiableSqlitePersistence<T extends IIdentifiable<K>, K> extend
         let values = this.generateValues(row);
         values.push(item.id);
 
-        let query = "UPDATE " + this.quoteIdentifier(this._tableName)
+        let query = "UPDATE " + this.quotedTableName()
             + " SET " + params + " WHERE id=?";
 
         return await new Promise((resolve, reject) => {
@@ -269,7 +270,7 @@ export class IdentifiableSqlitePersistence<T extends IIdentifiable<K>, K> extend
 
                     this._logger.trace(correlationId, "Updated in %s with id = %s", this._tableName, item.id);
 
-                    let query = "SELECT * FROM " + this.quoteIdentifier(this._tableName) + " WHERE id=?";
+                    let query = "SELECT * FROM " + this.quotedTableName() + " WHERE id=?";
                     this._client.get(query, [item.id], (err, result) => {
                         if (err != null) {
                             reject(err);
@@ -302,7 +303,7 @@ export class IdentifiableSqlitePersistence<T extends IIdentifiable<K>, K> extend
         let values = this.generateValues(row);
         values.push(id);
 
-        let query = "UPDATE " + this.quoteIdentifier(this._tableName)
+        let query = "UPDATE " + this.quotedTableName()
             + " SET " + params + " WHERE id=?";
 
         return await new Promise((resolve, reject) => {
@@ -315,7 +316,7 @@ export class IdentifiableSqlitePersistence<T extends IIdentifiable<K>, K> extend
 
                     this._logger.trace(correlationId, "Updated partially in %s with id = %s", this._tableName, id);
 
-                    let query = "SELECT * FROM " + this.quoteIdentifier(this._tableName) + " WHERE id=?";
+                    let query = "SELECT * FROM " + this.quotedTableName() + " WHERE id=?";
                     this._client.get(query, [id], (err, result) => {
                         if (err != null) {
                             reject(err);
@@ -338,7 +339,7 @@ export class IdentifiableSqlitePersistence<T extends IIdentifiable<K>, K> extend
      * @returns                 the deleted item.
      */
     public deleteById(correlationId: string, id: K): Promise<T> {
-        let query = "SELECT * FROM " + this.quoteIdentifier(this._tableName) + " WHERE id=?"
+        let query = "SELECT * FROM " + this.quotedTableName() + " WHERE id=?"
 
         return new Promise((resolve, reject) => {
             this._client.serialize(() => {
@@ -356,7 +357,7 @@ export class IdentifiableSqlitePersistence<T extends IIdentifiable<K>, K> extend
                         return;
                     }
         
-                    let query = "DELETE FROM " + this.quoteIdentifier(this._tableName) + " WHERE id=?";
+                    let query = "DELETE FROM " + this.quotedTableName() + " WHERE id=?";
                     this._client.run(query, [ id ], (err, result) => {
                         if (err != null) {
                             reject(err);
@@ -380,7 +381,7 @@ export class IdentifiableSqlitePersistence<T extends IIdentifiable<K>, K> extend
      */
     public async deleteByIds(correlationId: string, ids: K[]): Promise<void> {
         let params = this.generateParameters(ids);
-        let query = "DELETE FROM " + this.quoteIdentifier(this._tableName)
+        let query = "DELETE FROM " + this.quotedTableName()
             + " WHERE id IN(" + params + ")";
 
         let count = await new Promise<number>((resolve, reject) => {

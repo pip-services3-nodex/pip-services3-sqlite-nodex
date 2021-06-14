@@ -97,7 +97,7 @@ export class MySqlitePersistence extends IdentifableSqlitePersistence {
   public getOneByKey(correlationId: string, key: string,
     callback: (err: any, item: MyObject) => void): void {
     
-    let query = "SELECT * FROM " + this.quoteIdentifier(this._tableName) + " WHERE \"key\"=?";
+    let query = "SELECT * FROM " + this.quotedTableName() + " WHERE \"key\"=?";
     let params = [ key ];
 
     this._client.get(query, params, (err, result) => {
@@ -160,7 +160,7 @@ export class MySqlitePersistence extends IdentifableJsonSqlitePersistence {
   public getOneByKey(correlationId: string, key: string,
     callback: (err: any, item: MyObject) => void): void {
     
-    let query = "SELECT * FROM " + this.quoteIdentifier(this._tableName) + " WHERE JSON_EXTRACT(data, '$.key')=?";
+    let query = "SELECT * FROM " + this.quotedTableName() + " WHERE JSON_EXTRACT(data, '$.key')=?";
     let params = [ key ];
 
     this._client.get(query, params, (err, result) => {
