@@ -75,6 +75,10 @@ import { SqlitePersistence } from './SqlitePersistence';
  */
 export declare class IdentifiableSqlitePersistence<T extends IIdentifiable<K>, K> extends SqlitePersistence<T> implements IWriter<T, K>, IGetter<T, K>, ISetter<T> {
     /**
+     * Flag to turn on automated string ID generation
+     */
+    protected _autoGenerateId: boolean;
+    /**
      * Creates a new instance of the persistence component.
      *
      * @param collection    (optional) a collection name.

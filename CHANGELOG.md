@@ -7,6 +7,7 @@ Added support for database schemas
 ### Features
 
 * Added schemas to SqlitePersistence, IdentifiableSqlitePersistence, IdentifiableJsonSqlitePersistence
+* Added _autoGenerateId flag to IdentifiableSqlitePersistence
 
 ## <a name="1.0.0"></a> 1.0.0 (2021-04-29) 
 
