@@ -357,7 +357,7 @@ class SqlitePersistence {
             let exists = yield new Promise((resolve, reject) => {
                 this._client.get(query, (err) => {
                     if (err != null) {
-                        if (err.message == null || err.message.indexOf("no such table") < 0) {
+                        if (err.message == null || err.message.indexOf("no such table") > -1) {
                             resolve(false);
                         }
                         else {

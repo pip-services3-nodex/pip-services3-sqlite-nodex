@@ -451,7 +451,7 @@ export class SqlitePersistence<T> implements IReferenceable, IUnreferenceable, I
         let exists = await new Promise<boolean>((resolve, reject) => {
             this._client.get(query, (err) => {
                 if (err != null) {
-                    if (err.message == null || err.message.indexOf("no such table") < 0) {
+                    if (err.message == null || err.message.indexOf("no such table") > -1) {
                         resolve(false);
                     } else {
                         reject(err);
